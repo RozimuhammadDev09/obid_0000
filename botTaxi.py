@@ -26,6 +26,10 @@ TARGET_CHAT_IDS = [
     -1003426692784
 ]
 
+# =================== KECHIKISH (soniyada) ===================
+# E'lon guruhdan kelgandan keyin necha soniyadan so'ng yuboriladi
+SEND_DELAY = 10   # xohlasangiz 15 qilib qo'ying
+
 # =================== KALIT SO‘ZLAR ===================
 KEYWORDS = [
     # odam bor
@@ -34,12 +38,7 @@ KEYWORDS = [
     'komplek odam bor','komplekt odam bor','kompilek odam bor','kampilek odam bor',
     '1ta odam bor','2ta odam bor','3ta odam bor','4ta odam bor',
     'odam bor 1','odam bor 2','odam bor 3','odam bor 4',
-    'rishtonga odam bor','toshkentga odam bor',"toshkendan farg'onaga odam bor",
-    'тўрта одам бор','одам бор','комплект одам бор','компилект odam бор','кампилек одам бор',
-    'towga 1kishi', 'toshkentga 1kishi', "farg'onaga 1kishi", 'rishtonga 1kishi', '1kishi bor',
-    'towga 2kishi', 'toshkentga 2kishi', "farg'onaga 2kishi", 'rishtonga 2kishi', '2kishi bor',
-    'towga 3kishi', 'toshkentga 3kishi', "farg'onaga 3kishi", 'rishtonga 3kishi', '3kishi bor',
-    'towga 4kishi', 'toshkentga 4kishi', "farg'onaga 4kishi", 'rishtonga 4kishi', '4kishi bor',
+    'rishtonga odam bor','toshkentga odam bor',"toshkendan farg'onaga odam bor", '4kishi bor',
     'машина бор','одам бор эди','одам бор экан','одам бор 1','одам бор 2','одам бор 3','одам бор 4',
     'битта одам бор','иккита одам бор','учта одам бор','комплек одам бор','1та одам бор','2та одам бор',
     '3та одам бор','4та одам бор', 'toshkentdan bir kishi', 'rishtonga bir kishi', '1 ta qiz bor', 'ayol kishi bor mashina sorashyabdi',
@@ -66,8 +65,6 @@ KEYWORDS = [
     # dostavka
     'dastavka bor','dostavka bor','dastafka','dastafka bor',
     'доставкa бор','даставка бор','доставка бор','доставкa керак',
-    "Toshkentdan Rishtonga 1odam bor", '1odam bor', '1ta kamla', 'bitta kamlarga', '1ta kamlarga',
-    '1 ta kamlarga', '2kiwimiz', "bagajga yuk bor", '2kishimiz', "2 kiwimiz", "2 kishimiz", "2kiwimiz", 
     "3kiwimiz", "3 kiwimiz", "3 kishimiz", "3kishimiz", "4kishimiz", "4kiwimiz", "4 kishimiz", "4 kiwimiz",
     "Toshkentga 1kishi", "Toshkenga 1kishi", "Rishtonga 1kishi", "Rishotondan 1kiwi", "poshta  bor", "moshina kerak",
     "ayollar bor mashina kerak", "ayollar bor moshina kerak", "Toshkentga 1ta odam bor", "1 ta qiz bola bor", "qiz bola bor",
@@ -97,6 +94,22 @@ def normalize_phone(raw):
     if len(digits) == 9:
         return '+998' + digits
     return None
+
+# =================== KECHIKIB YUBORISH ===================
+pending_tasks = set()
+
+async def send_later(message_text):
+    try:
+        await asyncio.sleep(SEND_DELAY)
+        for target_id in TARGET_CHAT_IDS:
+            await client.send_message(
+                target_id,
+                message_text,
+                parse_mode='html'
+            )
+            print(f"📨 Yuborildi → {target_id}")
+    except Exception as e:
+        print("❌ Yuborishda xatolik:", e)
 
 # =================== HANDLER ===================
 @client.on(events.NewMessage(incoming=True))
@@ -152,13 +165,12 @@ async def handler(event):
             f"👉🏻 <b></b> {profile_link}"
         )
 
-        for target_id in TARGET_CHAT_IDS:
-            await client.send_message(
-                target_id,
-                message_text,
-                parse_mode='html'
-            )
-            print(f"📨 Yuborildi → {target_id}")
+        # Darhol yubormaymiz: SEND_DELAY soniyadan keyin yuboriladi.
+        # Alohida task bo'lgani uchun bot boshqa e'lonlarni kutib qolmaydi.
+        task = asyncio.create_task(send_later(message_text))
+        pending_tasks.add(task)
+        task.add_done_callback(pending_tasks.discard)
+        print(f"⏳ Navbatga olindi, {SEND_DELAY} soniyadan keyin yuboriladi")
 
     except Exception as e:
         print("❌ Xatolik:", e)
